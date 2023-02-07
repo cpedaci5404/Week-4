@@ -1,6 +1,6 @@
 ---
-title: "Weekly Summary Template"
-author: "Author Name"
+title: "Week 4"
+author: "Carson Pedaci"
 title-block-banner: true
 title-block-style: default
 toc: true
@@ -10,67 +10,324 @@ format: html
 
 ---
 
-## Tuesday, Jan 17
+## Tuesday, Jan 31
 
 ::: {.callout-important}
 ## TIL
 
-Include a _very brief_ summary of what you learnt in this class here. 
-
 Today, I learnt the following concepts in class:
 
-1. Item 1
-1. Item 2
-1. Item 3
+1. *Intro to statistical learning*
+1. Simple Linear Regression
+  * Motivation
+  * $l_2$ estimator
+  * Inference
+  * Prediction
+3. Multiple Regression
 :::
 
-Provide more concrete details here. You can also use footenotes[^footnote] if you like
 
-```{R results='hide'}
+```{R results = 'hide'}
 #| output: false
+library(ISLR2)
 library(dplyr)
-library(purrr)
+library(cowplot)
+library(kableExtra)
+library(htmlwidgets)
+library(tidyverse)
+```
+
+### Statistical Learning
+
+Suppose we are given dataset:
+
+$X = [X_1, X_2,...,X_p]$
+
+Called predictor vars, indep vars, covariates 
+
+***y***
+
+called response/outcome/dep vars
+
+Goal: Find function f such that $y = f(X)$
+
+$y_i = f(X_i) = f(X_i,1, X_i,2,..., X_i,p)$
+
+### Different Flavors: Statistical Learning
+
+* Supervised (y,x; quantitative responses)
+  * Regression (y contained in R (all real))
+  * Classification 
+* Unsupervised Learning (x)
+* Semi-supervised Learning (y, x (# of observations corresponding to y very small))
+* Reinforcement Learning 
+
+```{r}
+url <- "https://online.stat.psu.edu/stat462/sites/onlinecourses.science.psu.edu.stat462/files/data/poverty/index.txt"
+
+df <- read_tsv(url)
+df %>% head(., 20) %>% kable
+```
+### Goal
+
+Predict the birth rate as function of poverty rate
+
+```{r}
+colnames(df) <- tolower(colnames(df))
+x <- df$povpct
+y <- df$brth15to17
+```
+### Scatterplot 
+
+Visualize the relationship between $x$ and $y$ vars
+
+```{r}
+# fig-height = 5
+plt <- function(){
+  plot(
+  x,
+  y,
+  pch=20,
+  xlab = 'Pov %',
+  ylab = 'Birth rate (15 - 17)'
+)
+}
+plt()
+```
+$$y = Beta_1 + Beta_1x$$
+Always gives straight line
+
+```{r}
+b0 <- 1
+b1 <- 2
+
+plt()
+curve(b0 + b1 *x, 0, 30, add=T, col='firebrick')
+```
+```{r}
+b0 <- c(-2, 0, 2)
+b1 <- c(0, 1, 2)
+
+par(mfrow=c(3,3))
+
+for(B0 in b0){
+  for(B1 in b1){
+    plt()
+    curve(B0 + B1 *x, 0, 30, add=T, col='firebrick')
+    title(main = paste('b0 = ', B0, ' and b1 = ', B1))
+  }
+}
+
+```
+## Least Squares Estimator
+```{r, fig.height=9, fig.width=12}
+
+b0 <- 10
+b1 <- 1.1
+
+yhat <- b0 + b1 * x
+plt()
+curve(b0 + b1 * x, 0, 30, add=T, col='firebrick')
+title(main = paste('b0 = ', b0, ' and b1 = ', b1))
+segments(x, y, x, yhat)
+
+resids <- abs(y - yhat)^2
+ss_resids <- sum(resids)
+title(main = paste('b0, b1, ss_residuals = ', b0, b1, ss_resids, sep=','))
 ```
 
 
-For example: 
-in class we learnt we learnt about the `map` function from the `purrr` package. 
+Error = $y - \hat{y}$
 
+### Best fit minimizes residuals
 
-```{R results='hide', fig.width=7, fig.height=7}
-par(mfrow=c(3, 3), mar=c(3.5, 3.5, 2, 1), mgp=c(2.4, 0.8, 0))
-map(1:9, function(i)rnorm(1000) %>% hist(., main=i, col=i))
+```{r}
+model <- lm(y ~ x)
+
+sum(residuals(model)^2)
 ```
 
 
-
-## Thursday, Jan 19
+## Thursday, Feb 2
 
 
 
 ::: {.callout-important}
 ## TIL
 
-Include a _very brief_ summary of what you learnt in this class here. 
-
 Today, I learnt the following concepts in class:
 
-1. Item 1
-1. Item 2
-1. Item 3
+1. Linear Regression Model
+1. $p$-values 
+1. $R^2$ values
+1. Prediction
 :::
 
-Provide more concrete details here, e.g., 
+In our case we want to model $y$ as function of $x$. IN `R` the formula looks like:
 
-In class we learnt how to use the `map` function to create multiple regression diagnostic plots
+```{r}
+typeof(formula(y ~ x))
+```
+Linear regression model in `R` is called using the **L**inear **M**odel, i.e., 'lm()'
 
-```{R results='hide', fig.height=4}
-par(mfcol=c(2, 3), mar=c(3.5, 3.5, 2, 1), mgp=c(2.4, 0.8, 0))
-mtcars %>%
-  split(.$cyl) %>%
-  map(~ lm(mpg ~ wt, data = .x)) %>%
-  map(function(x)plot(x, which=c(1, 2)))
+```{r}
+model <- lm(y ~ x)
+```
+
+```{r}
+summary(model)
+```
+**What are null and alternate hypotheses for regression model?**
+
+Objective: We want to find the best linear model to fit $y \sim x$
+
+Null Hypothesis:
+>There is no linear relationship between $y$ an $x$
+
+In terms of $\beta_9$ and $\beta_1$?
+
+$\beta_1 = 0$ in $H_0$
+
+Alternate: $\beta_1 \neq 0$
+
+Summary:
+
+$$
+\begin{align}
+H_0: \beta_1 = 0 && H_1: \beta_1 \neq 0
+\end{align}
+$$
+When we see small $p$-val, reject null hypothesis in favor of alternate hypothesis.
+
+Implication of this w.r.t the original model objective?
+
+> **There is a significant relationship between $y$ and $x4. In mathematical terms, there is significant evidence in favor of a correlation between $x$ and $y$**
+
+This is what the $p$-values in model output are capturing. We can use the `kable` function to print results nicely.
+
+```{r}
+library(broom)
+
+summary(model)%>%
+  broom::tidy()%>%
+  knitr::kable()
+```
+We have the following terminology for different components of the model.
+
+1. Covariate: $x$
+
+```{r}
+head(x)
+```
+
+2. Response: $y$
+
+```{r}
+head(y)
+```
+
+3. Fitted values: $\hat{y}$
+```{r}
+yhat <- fitted(model)
+yhat
+```
+
+4. Residuals: $e = y - \hat{y}$
+
+```{r}
+res <- residuals(model)
+head(res)
+```
+
+Another important summary in model output is $R^2$, given as follows:
+
+$R^2$ = 
+
+1. Sum of square for residuals:
+
+$SS_{Res} = \sum_{i=1}^n e_i^2 = \sum_{i=1}^n (y_i - \hat{y}_i^2)$
+
+2. Sum of squares for regression:
+$SS_{Reg} = \sum_{i=1}^n (\hat{y}_i - \bar{y})^2$
+
+3. Sum of squares Total:
+$SS_{Tot} = \sum_{i=1}^n (y_i - \bar{y})^2
+
+```{r}
+x <- seq(0, 5, length = 100)
+
+b0 <- 2
+b1 <- 3
+
+y1 <- b0 + b1 * x + rnorm(100)
+y2 <- b0 + b1 * x + rnorm(100) * 3
+
+par(mfrow=c(1,2))
+
+plot(x, y1)
+plot(x, y2)
+```
+```{r}
+model1 <- lm(y1 ~ x)
+model2 <- lm(y2 ~ x)
+
+plot(x, y1)
+curve(coef(model1)[1] + coef(model1)[2] * x, add=T, col='red')
+
+plot(x, y2)
+curve(coef(model2)[1] + coef(model2)[2] * x, add=T, col='red')
+```
+```{r}
+summary(model1)
+```
+
+```{r}
+summary(model2)
+```
+
+### Prediction
+
+Ability of a model to predict vals for "unseen" data
+```{r}
+x <- df$povpct
+y <- df$brth15to17
 ```
 
 
-[^footnote]: You can include some footnotes here
+What is best guess for a given prediction? Look at regression line
+```{r}
+plt()
+abline(v=21, col='green')
+lines(x, fitted(lm(y~x)), col='red')
+```
+Best prediction is intersection. In `R` we can use the `predict()` function to do this:\
+
+```{r}
+new_x <- data.frame(x = c(21))
+new_y <- predict(model, new_x)
+
+new_y
+```
+If we plot this new point we get:
+
+```{r}
+plt()
+abline(v=21, col='green')
+lines(x, fitted(lm(y~x)), col='red')
+points(new_x, new_y, col = 'blue')
+```
+Make predictions not just for single observation but for collection.
+
+```{r}
+new_x <- data.frame(x = c(1:21))
+new_y <- predict(model, new_x)
+
+new_y
+```
+```{r}
+plt()
+for(a in new_x){abline(v=a, col='green')}
+lines(x, fitted(lm(y~x)), col='red')
+points(new_x %>% unlist(), new_y %>% unlist(), col = 'blue')
+```
+
